@@ -10,7 +10,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT }}
   REGION: us-east1
-  SERVICE: ${{ github.repository }}
+  SERVICE: ${{ github.GCP_PROJECT }}
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
@@ -76,7 +76,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v0.4.0
         with:
           service: ${{ env.SERVICE }}
-          image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{  github.sha }}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{  github.sha }}
           region: ${{ env.REGION }}
 
       - name: Show Output
