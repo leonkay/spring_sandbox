@@ -3,6 +3,12 @@ name: Publish to GCR and Deploy to Cloud Run
 on:
   push:
     branches: ["main"]
+env:
+  IMAGE_NAME: ${{ github.repository }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT }} #create env called PROJECT_ID consisted of our actual GCP Project ID
+  REPOSITORY: docker-registry
+  BASEREGISTRY: us-east1-docker.pkg.dev
+  SERVICE_NAME: spring-sandbox
 #define jobs
 jobs:
   Deploy:
@@ -20,8 +26,6 @@ jobs:
         with:
           credentials_json: "${{ secrets.GCP_SA_KEY }}"
       - name: Login to GCR
-        env:
-          PROJECT_ID: ${{ secrets.GCP_PROJECT }} #create env called PROJECT_ID consisted of our actual GCP Project ID
         uses: google-github-actions/setup-gcloud@v0.3.0 #checkouts GCR repo, so this workflow can access it
         with:
           service_account_key: ${{ secrets.GOOGLE_SECRET }} #parse the value of repository secret called SERVICE_ACCOUNT_KEY that we have created earlier
@@ -29,35 +33,23 @@ jobs:
           export_default_credentials: true
 
       - name: Build Docker Image
-        env:
-          IMAGE_NAME: ${{ github.repository }} #create env called IMAGE_NAME consisted of actual name of Docker Image after we build
-          PROJECT_ID: ${{ secrets.GCP_PROJECT }}
         run: docker build -t $IMAGE_NAME:latest . #build the docker image
 
       - name: Configure Docker Client
         run: |-
-          gcloud auth configure-docker --quiet #authenticate to gcr
+          gcloud auth configure-docker --quiet $BASEREGISTRY #authenticate to gcr
 
       - name: Push Docker Image to Container Registry GCR
-        env:
-          IMAGE_NAME: ${{ github.repository }}
-          PROJECT_ID: ${{ secrets.GCP_PROJECT }}
-          REPOSITORY: docker-registry
         #tag docker image to gcr image format then push to gcr
         run: |-
-          docker tag $IMAGE_NAME:latest gcr.io/$PROJECT_ID/$IMAGE_NAME:latest
-          docker push gcr.io/$PROJECT_ID/$IMAGE_NAME:latest
+          docker tag $IMAGE_NAME:latest $BASEREGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+          docker push $BASEREGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
       - name: Deploy to Cloud Run
         id: "deploy"
-        env:
-          IMAGE_NAME: ${{ github.repository }}
-          PROJECT_ID: ${{ secrets.GCP_PROJECT }}
-          REPOSITORY: docker-registry
-          SERVICE_NAME: spring-sandbox
         uses: "google-github-actions/deploy-cloudrun@v2"
         with:
           service: spring-sandbox
-          image: gcr.io/bold-vortex-291917/leonkay/spring_sandbox:latest
+          image: ${{ env.BASEREGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: "Use output"
-        run: 'curl "${{ steps.deploy.outputs.url }}"'
+        run: 'curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" "${{ steps.deploy.outputs.url }}"'
