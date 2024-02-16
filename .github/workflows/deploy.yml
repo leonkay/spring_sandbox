@@ -1,4 +1,3 @@
-#
 name: Create and publish a Docker image
 
 # Configures this workflow to run every time a change is pushed to the branch called `release`.
@@ -62,6 +61,7 @@ jobs:
         run: echo "Image pushed to ${{ steps.push-step.outputs.registry-paths }}"
   deploy:
     runs-on: ubuntu-latest
+    needs: build-and-push-image
     steps:
       - name: Setup Cloud cli
         uses: google-github-actions/setup-gcloud@v0.2.0
@@ -73,7 +73,7 @@ jobs:
         run: echo $GCLOUD_PROJECT
       - name: Deploy to Cloud Run
         id: dcr
-        uses: google-github-actions/deploy-cloudrun@v0.4.0
+        uses: google-github-actions/deploy-cloudrun@v2.2.0
         with:
           service: ${{ env.SERVICE }}
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{  github.sha }}
